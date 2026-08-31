@@ -2,8 +2,38 @@
 
 namespace bike {
 
+bool DebouncedInput::update(bool raw, std::uint32_t now_ms, std::uint32_t debounce_ms) {
+    if (!initialized_) {
+        raw_ = raw;
+        stable_ = raw;
+        changed_at_ms_ = now_ms;
+        initialized_ = true;
+        return false;
+    }
+
+    if (raw != raw_) {
+        raw_ = raw;
+        changed_at_ms_ = now_ms;
+    }
+
+    if (stable_ != raw_ && static_cast<std::uint32_t>(now_ms - changed_at_ms_) >= debounce_ms) {
+        stable_ = raw_;
+        return true;
+    }
+
+    return false;
+}
+
+void LightingLocalControl::sample_inputs(std::uint32_t now_ms) {
+    left_.update(inputs_.left_indicator_requested(), now_ms, input_debounce_ms_);
+    right_.update(inputs_.right_indicator_requested(), now_ms, input_debounce_ms_);
+    front_brake_.update(inputs_.front_brake_active(), now_ms, input_debounce_ms_);
+    rear_brake_.update(inputs_.rear_brake_active(), now_ms, input_debounce_ms_);
+    high_beam_.update(inputs_.high_beam_requested(), now_ms, input_debounce_ms_);
+}
+
 bool LightingLocalControl::local_indicator_active() const {
-    return inputs_.left_indicator_requested() || inputs_.right_indicator_requested();
+    return left_.value() || right_.value();
 }
 
 bool LightingLocalControl::write_if_changed(LightingOutput output, bool enabled) {
@@ -13,10 +43,11 @@ bool LightingLocalControl::write_if_changed(LightingOutput output, bool enabled)
 }
 
 void LightingLocalControl::service(std::uint32_t now_ms) {
+    sample_inputs(now_ms);
     const auto commanded = controller_.server().commanded_state();
 
-    const bool local_left = inputs_.left_indicator_requested();
-    const bool local_right = inputs_.right_indicator_requested();
+    const bool local_left = left_.value();
+    const bool local_right = right_.value();
 
     if (!initialized_) {
         last_blink_toggle_ms_ = now_ms;
@@ -37,8 +68,8 @@ void LightingLocalControl::service(std::uint32_t now_ms) {
 
     const bool effective_left = local_left ? blink_on_ : commanded.left_indicator;
     const bool effective_right = local_right ? blink_on_ : commanded.right_indicator;
-    const bool effective_brake = inputs_.brake_active() || commanded.brake_bright;
-    const bool effective_high = inputs_.high_beam_requested() || commanded.high_beam;
+    const bool effective_brake = front_brake_.value() || rear_brake_.value() || commanded.brake_bright;
+    const bool effective_high = high_beam_.value() || commanded.high_beam;
 
     bool changed = false;
     changed = write_if_changed(LightingOutput::LeftIndicator, effective_left) || changed;
