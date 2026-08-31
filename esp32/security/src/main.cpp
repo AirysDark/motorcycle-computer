@@ -7,10 +7,14 @@ HardwareSerial NetworkSerial(2);
 security_platform::ArduinoSerialTransport transport(NetworkSerial);
 bike::BikeNode node(bike::NodeAddress::Security, transport);
 security_platform::GpioSecurityHardware hardware;
-bike::SecurityController controller(node, hardware);
+security_platform::PreferencesSecurityPersistence persistence;
+bike::SecurityController controller(node, hardware, &persistence);
 
 void setup() {
+    // Hardware outputs are forced inactive before any persisted state is read.
     hardware.begin();
+    persistence.begin();
+    controller.server().restore_persisted_state(millis());
 
     NetworkSerial.begin(
         security_platform::kNetworkBaud,
