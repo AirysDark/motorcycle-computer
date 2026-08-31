@@ -1,6 +1,7 @@
 #include <Arduino.h>
 #include "bike/lighting_controller.hpp"
 #include "bike/lighting_diagnostics.hpp"
+#include "bike/lighting_fault_manager.hpp"
 #include "bike/lighting_local_control.hpp"
 #include "lighting_platform.hpp"
 
@@ -15,6 +16,7 @@ bike::BikeNode node(bike::NodeAddress::Lighting, transport);
 bike::LightingController controller(node, hardware);
 bike::LightingLocalControl local_control(controller, hardware, inputs);
 bike::LightingDiagnostics diagnostics(node, hardware, electrical_feedback);
+bike::LightingFaultManager fault_manager(diagnostics, hardware);
 
 } // namespace
 
@@ -36,6 +38,10 @@ void setup() {
     local_control.set_blink_half_period_ms(500);
     local_control.set_debounce_ms(25);
     diagnostics.set_publish_interval_ms(1000);
+    fault_manager.set_confirm_samples(3);
+
+    // Default policy is ReportOnly for every channel. A shutdown policy must be
+    // explicitly enabled after the real current-sense hardware is validated.
 
     Serial.println("lighting-controller: booted");
 }
@@ -44,6 +50,7 @@ void loop() {
     const auto now_ms = millis();
     controller.service(now_ms);
     local_control.service(now_ms);
+    fault_manager.service(now_ms);
     diagnostics.service(now_ms);
     delay(1);
 }
