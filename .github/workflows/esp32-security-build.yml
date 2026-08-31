@@ -1,0 +1,30 @@
+name: ESP32 security build
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'esp32/security/**'
+      - 'library/**'
+      - 'protocol/**'
+      - '.github/workflows/esp32-security-build.yml'
+  pull_request:
+    paths:
+      - 'esp32/security/**'
+      - 'library/**'
+      - 'protocol/**'
+      - '.github/workflows/esp32-security-build.yml'
+
+jobs:
+  platformio:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install PlatformIO
+        run: pip install platformio
+
+      - name: Build security firmware
+        working-directory: esp32/security
+        run: pio run
