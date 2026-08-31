@@ -10,6 +10,7 @@ add_library(bike_protocol
     library/src/stream_parser.cpp
     library/src/node.cpp
     library/src/router.cpp
+    library/src/northbridge.cpp
     library/src/supervisor.cpp
     library/src/lighting.cpp
     library/src/lighting_server.cpp
@@ -41,8 +42,14 @@ add_executable(lighting_server_test
 )
 target_link_libraries(lighting_server_test PRIVATE bike_protocol)
 
+add_executable(northbridge_runtime_test
+    tests/northbridge_runtime_test.cpp
+)
+target_link_libraries(northbridge_runtime_test PRIVATE bike_protocol)
+
 enable_testing()
 add_test(NAME protocol_smoke_test COMMAND protocol_smoke_test)
 add_test(NAME network_runtime_test COMMAND network_runtime_test)
 add_test(NAME supervisor_lighting_test COMMAND supervisor_lighting_test)
 add_test(NAME lighting_server_test COMMAND lighting_server_test)
+add_test(NAME northbridge_runtime_test COMMAND northbridge_runtime_test)
