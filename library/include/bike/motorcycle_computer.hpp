@@ -3,6 +3,7 @@
 #include <cstdint>
 #include "bike/lighting.hpp"
 #include "bike/lighting_diagnostics.hpp"
+#include "bike/router.hpp"
 #include "bike/security.hpp"
 #include "bike/supervisor.hpp"
 
@@ -31,6 +32,22 @@ struct LightingFaultSnapshot {
     std::uint32_t updated_at_ms{0};
 };
 
+struct NorthbridgePortSnapshot {
+    bool attached{false};
+    std::uint32_t rx_packets{0};
+    std::uint32_t tx_packets{0};
+    std::uint32_t rx_bytes{0};
+};
+
+struct NorthbridgeSnapshot {
+    bool valid{false};
+    std::uint32_t forwarded_packets{0};
+    std::uint32_t dropped_packets{0};
+    std::uint32_t route_movement_events{0};
+    std::array<NorthbridgePortSnapshot, kMaxRouterPorts> ports{};
+    std::uint32_t updated_at_ms{0};
+};
+
 struct SecuritySnapshot {
     bool valid{false};
     SecurityMode mode{SecurityMode::Unlocked};
@@ -52,6 +69,7 @@ struct MotorcycleSnapshot {
     LightingSnapshot lighting{};
     LightingDiagnosticSnapshot lighting_diagnostics{};
     std::array<LightingFaultSnapshot, 4> lighting_faults{};
+    NorthbridgeSnapshot northbridge{};
     SecuritySnapshot security{};
     std::uint32_t tx_failures{0};
     std::uint32_t rx_drops{0};
@@ -76,6 +94,7 @@ private:
     bool decode_lighting_state(const Packet& packet, std::uint32_t now_ms);
     bool decode_lighting_diagnostics(const Packet& packet, std::uint32_t now_ms);
     bool decode_lighting_fault(const Packet& packet, std::uint32_t now_ms);
+    bool decode_northbridge_diagnostics(const Packet& packet, std::uint32_t now_ms);
     bool decode_security_state(const Packet& packet, std::uint32_t now_ms);
     bool decode_security_event(const Packet& packet, std::uint32_t now_ms);
     static std::size_t lighting_index(LightingOutput output);
@@ -87,6 +106,7 @@ private:
     LightingSnapshot lighting_state_{};
     LightingDiagnosticSnapshot lighting_diagnostics_{};
     std::array<LightingFaultSnapshot, 4> lighting_faults_{};
+    NorthbridgeSnapshot northbridge_state_{};
     SecuritySnapshot security_state_{};
 };
 
