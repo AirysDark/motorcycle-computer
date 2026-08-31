@@ -20,13 +20,51 @@ const char* online_text(const bike::NodeStatus* status) {
     return status->online ? "ONLINE" : "OFFLINE";
 }
 
+const char* on_off(bool value) {
+    return value ? "ON" : "OFF";
+}
+
+const char* security_mode_text(bike::SecurityMode mode) {
+    switch (mode) {
+        case bike::SecurityMode::Unlocked: return "UNLOCKED";
+        case bike::SecurityMode::Locked:   return "LOCKED";
+        case bike::SecurityMode::Alarm:    return "ALARM";
+    }
+    return "UNKNOWN";
+}
+
 void print_status(const bike::MotorcycleSnapshot& snapshot) {
     std::cout
-        << "northbridge=" << online_text(snapshot.northbridge)
-        << " lighting=" << online_text(snapshot.lighting)
-        << " security=" << online_text(snapshot.security)
+        << "northbridge=" << online_text(snapshot.northbridge_node)
+        << " lighting-node=" << online_text(snapshot.lighting_node)
+        << " security-node=" << online_text(snapshot.security_node)
         << " tx_failures=" << snapshot.tx_failures
+        << " rx_drops=" << snapshot.rx_drops
         << '\n';
+
+    if (snapshot.lighting.valid) {
+        std::cout
+            << "lighting: left=" << on_off(snapshot.lighting.left_indicator)
+            << " right=" << on_off(snapshot.lighting.right_indicator)
+            << " brake=" << on_off(snapshot.lighting.brake_bright)
+            << " high=" << on_off(snapshot.lighting.high_beam)
+            << '\n';
+    } else {
+        std::cout << "lighting: state unknown\n";
+    }
+
+    if (snapshot.security.valid) {
+        std::cout
+            << "security: mode=" << security_mode_text(snapshot.security.mode)
+            << " inhibit=" << on_off(snapshot.security.start_inhibit)
+            << " alarm=" << on_off(snapshot.security.alarm_active)
+            << " shock-warning=" << on_off(snapshot.security.shock_warning)
+            << " shock-trigger=" << on_off(snapshot.security.shock_trigger)
+            << " engine-running=" << on_off(snapshot.security.engine_running)
+            << '\n';
+    } else {
+        std::cout << "security: state unknown\n";
+    }
 }
 
 bool handle_command(const std::string& line, bike::MotorcycleComputer& computer, std::uint32_t now_ms) {
