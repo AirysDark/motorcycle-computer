@@ -13,6 +13,36 @@ SecurityStateSnapshot SecurityServer::state() const {
     return snapshot;
 }
 
+void SecurityServer::persist_armed(bool armed) {
+    if (persistence_ != nullptr) persistence_->save_armed(armed);
+}
+
+bool SecurityServer::restore_persisted_state(std::uint32_t now_ms) {
+    hardware_.set_alarm_output(false);
+    hardware_.set_start_inhibit(false);
+    alarm_timer_active_ = false;
+
+    bool armed = false;
+    if (persistence_ == nullptr || !persistence_->load_armed(armed) || !armed) {
+        mode_ = SecurityMode::Unlocked;
+        recovery_requires_stop_confirmation_ = false;
+        return false;
+    }
+
+    // A restored armed intent is never trusted as immediately safe to inhibit.
+    // Pretend the engine is running until the physical input has been observed
+    // stopped continuously for the normal confirmation interval.
+    mode_ = SecurityMode::LockPending;
+    filtered_engine_running_ = true;
+    engine_filter_initialized_ = true;
+    engine_stop_pending_ = false;
+    engine_stop_started_ms_ = now_ms;
+    recovery_requires_stop_confirmation_ = true;
+    previous_warning_ = false;
+    previous_trigger_ = false;
+    return true;
+}
+
 bool SecurityServer::update_filtered_assert(bool raw, bool& stable, bool& pending,
                                             std::uint32_t& changed_at_ms,
                                             std::uint32_t confirm_ms,
@@ -109,12 +139,16 @@ bool SecurityServer::set_locked(bool locked, std::uint32_t now_ms) {
         hardware_.set_alarm_output(false);
         hardware_.set_start_inhibit(false);
         alarm_timer_active_ = false;
+        recovery_requires_stop_confirmation_ = false;
+        persist_armed(false);
         publish_event(SecurityEventCode::Unlocked, last_controller_, now_ms);
         return true;
     }
 
     hardware_.set_alarm_output(false);
     alarm_timer_active_ = false;
+    recovery_requires_stop_confirmation_ = false;
+    persist_armed(true);
     if (filtered_engine_running_) {
         mode_ = SecurityMode::LockPending;
         publish_event(SecurityEventCode::LockPending, last_controller_, now_ms);
@@ -196,6 +230,7 @@ void SecurityServer::service(std::uint32_t now_ms) {
 
     if (mode_ == SecurityMode::LockPending && !filtered_engine_running_) {
         mode_ = SecurityMode::Locked;
+        recovery_requires_stop_confirmation_ = false;
         publish_event(SecurityEventCode::Locked, last_controller_, now_ms);
         publish_state(last_controller_, now_ms);
     }
@@ -217,8 +252,6 @@ void SecurityServer::service(std::uint32_t now_ms) {
         if (start_alarm(last_controller_, now_ms)) publish_state(last_controller_, now_ms);
     }
 
-    // A stuck trigger remains true here, so after the bounded alarm expires it
-    // cannot retrigger until the sensor has genuinely released and asserted again.
     previous_warning_ = filtered_warning_;
     previous_trigger_ = filtered_trigger_;
 }
