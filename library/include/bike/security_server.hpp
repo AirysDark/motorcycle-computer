@@ -2,6 +2,7 @@
 #include <cstdint>
 #include "bike/security.hpp"
 #include "bike/security_hardware.hpp"
+#include "bike/security_persistence.hpp"
 
 namespace bike {
 
@@ -16,12 +17,13 @@ struct SecurityStateSnapshot {
 
 class SecurityServer {
 public:
-    SecurityServer(BikeNode& node, SecurityHardware& hardware)
-        : node_(node), hardware_(hardware) {}
+    SecurityServer(BikeNode& node, SecurityHardware& hardware, SecurityPersistence* persistence = nullptr)
+        : node_(node), hardware_(hardware), persistence_(persistence) {}
 
     bool handle_packet(const Packet& packet, std::uint32_t now_ms);
     void service(std::uint32_t now_ms);
     bool publish_state(NodeAddress destination, std::uint32_t now_ms);
+    bool restore_persisted_state(std::uint32_t now_ms);
 
     void set_engine_stop_confirm_ms(std::uint32_t value) { engine_stop_confirm_ms_ = value; }
     void set_shock_warning_confirm_ms(std::uint32_t value) { warning_confirm_ms_ = value; }
@@ -44,9 +46,11 @@ private:
                                 std::uint32_t& changed_at_ms,
                                 std::uint32_t confirm_ms,
                                 std::uint32_t now_ms);
+    void persist_armed(bool armed);
 
     BikeNode& node_;
     SecurityHardware& hardware_;
+    SecurityPersistence* persistence_{nullptr};
     SecurityMode mode_{SecurityMode::Unlocked};
     NodeAddress last_controller_{NodeAddress::MainComputer};
 
@@ -54,6 +58,7 @@ private:
     bool engine_filter_initialized_{false};
     bool engine_stop_pending_{false};
     std::uint32_t engine_stop_started_ms_{0};
+    bool recovery_requires_stop_confirmation_{false};
 
     bool filtered_warning_{false};
     bool warning_pending_{false};
