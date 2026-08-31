@@ -28,10 +28,7 @@ bool StreamParser::push(std::uint8_t byte, Packet& out_packet) {
     buffer_[length_++] = byte;
 
     if (length_ == kHeaderSize) {
-        const std::uint16_t payload_length =
-            (static_cast<std::uint16_t>(buffer_[8]) << 8) |
-             static_cast<std::uint16_t>(buffer_[9]);
-
+        const std::uint16_t payload_length = buffer_[9];
         if (payload_length > kMaxPayloadSize) {
             reset();
             return false;
