@@ -41,12 +41,14 @@ class FakeInputs final : public bike::LightingInputs {
 public:
     bool left_indicator_requested() const override { return left; }
     bool right_indicator_requested() const override { return right; }
-    bool brake_active() const override { return brake; }
+    bool front_brake_active() const override { return front_brake; }
+    bool rear_brake_active() const override { return rear_brake; }
     bool high_beam_requested() const override { return high; }
 
     bool left{false};
     bool right{false};
-    bool brake{false};
+    bool front_brake{false};
+    bool rear_brake{false};
     bool high{false};
 };
 
@@ -60,38 +62,70 @@ int main() {
     bike::LightingController controller(node, outputs);
     bike::LightingLocalControl local(controller, outputs, inputs);
     local.set_blink_half_period_ms(500);
+    local.set_input_debounce_ms(25);
 
-    // Physical brake and high-beam requests immediately force outputs on.
-    inputs.brake = true;
-    inputs.high = true;
+    // Initialize all inputs inactive.
     local.service(0);
-    assert(outputs.read_output(bike::LightingOutput::BrakeBright));
-    assert(outputs.read_output(bike::LightingOutput::HighBeam));
 
-    // Removing local requests returns to the remote commanded state (default OFF).
-    inputs.brake = false;
-    inputs.high = false;
-    local.service(1);
+    // A short brake bounce must not assert the lamp.
+    inputs.front_brake = true;
+    local.service(5);
+    inputs.front_brake = false;
+    local.service(15);
     assert(!outputs.read_output(bike::LightingOutput::BrakeBright));
+
+    // Front brake asserts after the debounce interval.
+    inputs.front_brake = true;
+    local.service(30);
+    local.service(54);
+    assert(!outputs.read_output(bike::LightingOutput::BrakeBright));
+    local.service(55);
+    assert(outputs.read_output(bike::LightingOutput::BrakeBright));
+
+    // Rear brake independently keeps the brake lamp active.
+    inputs.rear_brake = true;
+    local.service(60);
+    local.service(85);
+    inputs.front_brake = false;
+    local.service(90);
+    local.service(115);
+    assert(outputs.read_output(bike::LightingOutput::BrakeBright));
+
+    inputs.rear_brake = false;
+    local.service(120);
+    local.service(145);
+    assert(!outputs.read_output(bike::LightingOutput::BrakeBright));
+
+    // High beam is also debounced and locally authoritative.
+    inputs.high = true;
+    local.service(150);
+    local.service(175);
+    assert(outputs.read_output(bike::LightingOutput::HighBeam));
+    inputs.high = false;
+    local.service(180);
+    local.service(205);
     assert(!outputs.read_output(bike::LightingOutput::HighBeam));
 
     // A local left indicator request flashes without any network command.
     inputs.left = true;
-    local.service(100);
+    local.service(210);
+    local.service(235);
     assert(outputs.read_output(bike::LightingOutput::LeftIndicator));
-    local.service(599);
+    local.service(734);
     assert(outputs.read_output(bike::LightingOutput::LeftIndicator));
-    local.service(600);
+    local.service(735);
     assert(!outputs.read_output(bike::LightingOutput::LeftIndicator));
-    local.service(1100);
+    local.service(1235);
     assert(outputs.read_output(bike::LightingOutput::LeftIndicator));
 
-    // Both local switches active behave as hazard flashing.
+    // Both local switches active behave as hazard flashing after debounce.
     inputs.right = true;
-    local.service(1600);
+    local.service(1240);
+    local.service(1265);
+    local.service(1735);
     assert(!outputs.read_output(bike::LightingOutput::LeftIndicator));
     assert(!outputs.read_output(bike::LightingOutput::RightIndicator));
-    local.service(2100);
+    local.service(2235);
     assert(outputs.read_output(bike::LightingOutput::LeftIndicator));
     assert(outputs.read_output(bike::LightingOutput::RightIndicator));
 
