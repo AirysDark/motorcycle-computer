@@ -14,8 +14,6 @@ SecurityStateSnapshot SecurityServer::state() const {
 }
 
 void SecurityServer::update_start_inhibit() {
-    // Critical rule: never assert the inhibit while the engine is already running.
-    // Locking a running motorcycle is therefore deferred until the engine stops.
     const bool should_inhibit = (mode_ != SecurityMode::Unlocked) && !hardware_.engine_running();
     hardware_.set_start_inhibit(should_inhibit);
 }
@@ -54,15 +52,20 @@ bool SecurityServer::set_locked(bool locked, std::uint32_t now_ms) {
         return true;
     }
 
-    mode_ = SecurityMode::Locked;
     hardware_.set_alarm_output(false);
+    if (hardware_.engine_running()) {
+        mode_ = SecurityMode::LockPending;
+        publish_event(SecurityEventCode::LockPending, last_controller_, now_ms);
+    } else {
+        mode_ = SecurityMode::Locked;
+        publish_event(SecurityEventCode::Locked, last_controller_, now_ms);
+    }
     update_start_inhibit();
-    publish_event(SecurityEventCode::Locked, last_controller_, now_ms);
     return true;
 }
 
 bool SecurityServer::start_alarm(NodeAddress report_to, std::uint32_t now_ms) {
-    if (mode_ == SecurityMode::Unlocked) return false;
+    if (mode_ != SecurityMode::Locked) return false;
     mode_ = SecurityMode::Alarm;
     if (!hardware_.set_alarm_output(true)) return false;
     update_start_inhibit();
@@ -122,16 +125,22 @@ bool SecurityServer::handle_packet(const Packet& packet, std::uint32_t now_ms) {
 }
 
 void SecurityServer::service(std::uint32_t now_ms) {
+    if (mode_ == SecurityMode::LockPending && !hardware_.engine_running()) {
+        mode_ = SecurityMode::Locked;
+        publish_event(SecurityEventCode::Locked, last_controller_, now_ms);
+        publish_state(last_controller_, now_ms);
+    }
+
     update_start_inhibit();
 
     const bool warning = hardware_.shock_warning_active();
     const bool trigger = hardware_.shock_trigger_active();
 
-    if (mode_ != SecurityMode::Unlocked && warning && !previous_warning_) {
+    if (mode_ == SecurityMode::Locked && warning && !previous_warning_) {
         publish_event(SecurityEventCode::ShockWarning, last_controller_, now_ms);
     }
 
-    if (mode_ != SecurityMode::Unlocked && trigger && !previous_trigger_) {
+    if (mode_ == SecurityMode::Locked && trigger && !previous_trigger_) {
         publish_event(SecurityEventCode::ShockTrigger, last_controller_, now_ms);
         start_alarm(last_controller_, now_ms);
     }
