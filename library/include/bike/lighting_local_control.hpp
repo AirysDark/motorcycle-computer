@@ -43,6 +43,7 @@ private:
     std::uint32_t blink_half_period_ms_{500};
     std::uint32_t last_blink_toggle_ms_{0};
     bool blink_on_{true};
+    bool indicator_active_previous_{false};
     bool initialized_{false};
 };
 
