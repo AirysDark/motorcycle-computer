@@ -8,3 +8,4 @@
 #include "../../../library/src/lighting.cpp"
 #include "../../../library/src/lighting_server.cpp"
 #include "../../../library/src/lighting_controller.cpp"
+#include "../../../library/src/lighting_local_control.cpp"
