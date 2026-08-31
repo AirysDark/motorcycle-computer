@@ -52,6 +52,22 @@ void print_status(const bike::MotorcycleSnapshot& snapshot) {
               << " tx_failures=" << snapshot.tx_failures
               << " rx_drops=" << snapshot.rx_drops << '\n';
 
+    if (snapshot.northbridge.valid) {
+        std::cout << "northbridge-network: forwarded=" << snapshot.northbridge.forwarded_packets
+                  << " dropped=" << snapshot.northbridge.dropped_packets
+                  << " route-movements=" << snapshot.northbridge.route_movement_events << '\n';
+        for (std::size_t i = 0; i < snapshot.northbridge.ports.size(); ++i) {
+            const auto& port = snapshot.northbridge.ports[i];
+            if (!port.attached) continue;
+            std::cout << "northbridge-port " << i
+                      << ": rx_packets=" << port.rx_packets
+                      << " tx_packets=" << port.tx_packets
+                      << " rx_bytes=" << port.rx_bytes << '\n';
+        }
+    } else {
+        std::cout << "northbridge-network: diagnostics unknown\n";
+    }
+
     if (snapshot.lighting.valid) {
         std::cout << "lighting: left=" << on_off(snapshot.lighting.left_indicator)
                   << " right=" << on_off(snapshot.lighting.right_indicator)
