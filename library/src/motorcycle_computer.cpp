@@ -78,13 +78,11 @@ bool MotorcycleComputer::decode_lighting_fault(const Packet& packet, std::uint32
     if (packet.source != NodeAddress::Lighting ||
         (packet.type != MessageType::Fault && packet.type != MessageType::FaultClear) ||
         packet.length != 8 || packet.payload[0] != 0x01) return false;
-
     const auto output = static_cast<LightingOutput>(packet.payload[1]);
     const auto index = lighting_index(output);
     if (index >= lighting_faults_.size()) return false;
     const auto raw_status = packet.payload[2];
     if (raw_status > static_cast<std::uint8_t>(LightingElectricalStatus::OverCurrent) || packet.payload[3] > 1u) return false;
-
     auto& fault = lighting_faults_[index];
     fault.latched = packet.type == MessageType::Fault;
     fault.status = fault.latched ? static_cast<LightingElectricalStatus>(raw_status) : LightingElectricalStatus::Off;
@@ -96,32 +94,45 @@ bool MotorcycleComputer::decode_lighting_fault(const Packet& packet, std::uint32
 
 bool MotorcycleComputer::decode_northbridge_diagnostics(const Packet& packet, std::uint32_t now_ms) {
     if (packet.source != NodeAddress::Northbridge || packet.type != MessageType::Diagnostic ||
-        packet.length < 14 || packet.payload[0] != 0x01) return false;
-
+        packet.length < 18 || packet.payload[0] != 0x02) return false;
     const auto port_count = packet.payload[1];
-    if (port_count > kMaxRouterPorts || packet.length != static_cast<std::uint16_t>(14 + port_count * 14)) return false;
+    if (port_count > kMaxRouterPorts || packet.length != static_cast<std::uint16_t>(18 + port_count * 21)) return false;
 
-    NorthbridgeSnapshot next{};
+    NorthbridgeSnapshot next = northbridge_state_;
     next.forwarded_packets = read_u32(packet, 2);
     next.dropped_packets = read_u32(packet, 6);
     next.route_movement_events = read_u32(packet, 10);
+    next.topology_fault_events = read_u32(packet, 14);
+    for (auto& port : next.ports) port = NorthbridgePortSnapshot{};
 
-    std::size_t offset = 14;
+    std::size_t offset = 18;
     for (std::size_t i = 0; i < port_count; ++i) {
         const auto port = packet.payload[offset];
-        const auto attached = packet.payload[offset + 1];
-        if (port >= kMaxRouterPorts || attached > 1u) return false;
+        if (port >= kMaxRouterPorts) return false;
         auto& stats = next.ports[port];
-        stats.attached = attached != 0;
-        stats.rx_packets = read_u32(packet, offset + 2);
-        stats.tx_packets = read_u32(packet, offset + 6);
-        stats.rx_bytes = read_u32(packet, offset + 10);
-        offset += 14;
+        stats.attached = true;
+        stats.rx_packets = read_u32(packet, offset + 1);
+        stats.tx_packets = read_u32(packet, offset + 5);
+        stats.rx_bytes = read_u32(packet, offset + 9);
+        stats.dropped_packets = read_u32(packet, offset + 13);
+        stats.malformed_frames = read_u32(packet, offset + 17);
+        offset += 21;
     }
-
     next.valid = true;
     next.updated_at_ms = now_ms;
     northbridge_state_ = next;
+    return true;
+}
+
+bool MotorcycleComputer::decode_northbridge_fault(const Packet& packet, std::uint32_t now_ms) {
+    if (packet.source != NodeAddress::Northbridge || packet.type != MessageType::Fault ||
+        packet.length != 9 || packet.payload[0] != 0x02 || packet.payload[1] != 0x01) return false;
+    northbridge_state_.topology_fault_active = true;
+    northbridge_state_.topology_fault_node = static_cast<NodeAddress>(packet.payload[2]);
+    northbridge_state_.expected_port = packet.payload[3];
+    northbridge_state_.actual_port = packet.payload[4];
+    northbridge_state_.topology_fault_events = read_u32(packet, 5);
+    northbridge_state_.updated_at_ms = now_ms;
     return true;
 }
 
@@ -156,6 +167,7 @@ void MotorcycleComputer::dispatch(const Packet& packet, std::uint32_t now_ms) {
     if (decode_lighting_diagnostics(packet, now_ms)) return;
     if (decode_lighting_fault(packet, now_ms)) return;
     if (decode_northbridge_diagnostics(packet, now_ms)) return;
+    if (decode_northbridge_fault(packet, now_ms)) return;
     if (decode_security_state(packet, now_ms)) return;
     decode_security_event(packet, now_ms);
 }
@@ -186,13 +198,11 @@ bool MotorcycleComputer::request_all_states(std::uint32_t now_ms) {
     Packet lighting_request{};
     lighting_request.destination = NodeAddress::Lighting;
     lighting_request.type = MessageType::GetState;
-    lighting_request.length = 0;
     const bool lighting_ok = node_.send(lighting_request, now_ms, false);
 
     Packet northbridge_request{};
     northbridge_request.destination = NodeAddress::Northbridge;
     northbridge_request.type = MessageType::Diagnostic;
-    northbridge_request.length = 0;
     const bool northbridge_ok = node_.send(northbridge_request, now_ms, false);
 
     const bool security_ok = security_.request_state(now_ms);
