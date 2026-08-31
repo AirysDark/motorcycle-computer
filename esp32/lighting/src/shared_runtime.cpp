@@ -9,3 +9,4 @@
 #include "../../../library/src/lighting_server.cpp"
 #include "../../../library/src/lighting_controller.cpp"
 #include "../../../library/src/lighting_local_control.cpp"
+#include "../../../library/src/lighting_diagnostics.cpp"
