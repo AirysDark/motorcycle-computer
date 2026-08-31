@@ -138,7 +138,7 @@ bool MotorcycleComputer::decode_northbridge_fault(const Packet& packet, std::uin
 
 bool MotorcycleComputer::decode_security_state(const Packet& packet, std::uint32_t now_ms) {
     if (packet.source != NodeAddress::Security || packet.type != MessageType::SecurityState || packet.length != 6) return false;
-    if (packet.payload[0] > static_cast<std::uint8_t>(SecurityMode::Alarm)) return false;
+    if (packet.payload[0] > static_cast<std::uint8_t>(SecurityMode::LockPending)) return false;
     for (std::size_t i = 1; i < 6; ++i) if (packet.payload[i] > 1u) return false;
     security_state_.mode = static_cast<SecurityMode>(packet.payload[0]);
     security_state_.start_inhibit = packet.payload[1] != 0;
@@ -154,7 +154,7 @@ bool MotorcycleComputer::decode_security_state(const Packet& packet, std::uint32
 bool MotorcycleComputer::decode_security_event(const Packet& packet, std::uint32_t now_ms) {
     if (packet.source != NodeAddress::Security || packet.type != MessageType::SecurityEvent || packet.length != 1) return false;
     const auto raw = packet.payload[0];
-    if (raw < static_cast<std::uint8_t>(SecurityEventCode::ShockWarning) || raw > static_cast<std::uint8_t>(SecurityEventCode::Unlocked)) return false;
+    if (raw < static_cast<std::uint8_t>(SecurityEventCode::ShockWarning) || raw > static_cast<std::uint8_t>(SecurityEventCode::LockPending)) return false;
     security_state_.last_event = static_cast<SecurityEventCode>(raw);
     security_state_.has_event = true;
     security_state_.last_event_at_ms = now_ms;
