@@ -10,6 +10,8 @@ add_library(bike_protocol
     library/src/stream_parser.cpp
     library/src/node.cpp
     library/src/router.cpp
+    library/src/supervisor.cpp
+    library/src/lighting.cpp
 )
 
 target_include_directories(bike_protocol PUBLIC
@@ -27,6 +29,12 @@ add_executable(network_runtime_test
 )
 target_link_libraries(network_runtime_test PRIVATE bike_protocol)
 
+add_executable(supervisor_lighting_test
+    tests/supervisor_lighting_test.cpp
+)
+target_link_libraries(supervisor_lighting_test PRIVATE bike_protocol)
+
 enable_testing()
 add_test(NAME protocol_smoke_test COMMAND protocol_smoke_test)
 add_test(NAME network_runtime_test COMMAND network_runtime_test)
+add_test(NAME supervisor_lighting_test COMMAND supervisor_lighting_test)
