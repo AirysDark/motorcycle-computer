@@ -2,6 +2,15 @@
 
 namespace bike {
 
+namespace {
+std::uint32_t read_u32(const Packet& packet, std::size_t offset) {
+    return (static_cast<std::uint32_t>(packet.payload[offset]) << 24) |
+           (static_cast<std::uint32_t>(packet.payload[offset + 1]) << 16) |
+           (static_cast<std::uint32_t>(packet.payload[offset + 2]) << 8) |
+            static_cast<std::uint32_t>(packet.payload[offset + 3]);
+}
+}
+
 std::size_t MotorcycleComputer::lighting_index(LightingOutput output) {
     switch (output) {
         case LightingOutput::LeftIndicator: return 0;
@@ -80,12 +89,39 @@ bool MotorcycleComputer::decode_lighting_fault(const Packet& packet, std::uint32
     fault.latched = packet.type == MessageType::Fault;
     fault.status = fault.latched ? static_cast<LightingElectricalStatus>(raw_status) : LightingElectricalStatus::Off;
     fault.shutdown_applied = fault.latched && packet.payload[3] != 0;
-    fault.occurrence_count =
-        (static_cast<std::uint32_t>(packet.payload[4]) << 24) |
-        (static_cast<std::uint32_t>(packet.payload[5]) << 16) |
-        (static_cast<std::uint32_t>(packet.payload[6]) << 8) |
-         static_cast<std::uint32_t>(packet.payload[7]);
+    fault.occurrence_count = read_u32(packet, 4);
     fault.updated_at_ms = now_ms;
+    return true;
+}
+
+bool MotorcycleComputer::decode_northbridge_diagnostics(const Packet& packet, std::uint32_t now_ms) {
+    if (packet.source != NodeAddress::Northbridge || packet.type != MessageType::Diagnostic ||
+        packet.length < 14 || packet.payload[0] != 0x01) return false;
+
+    const auto port_count = packet.payload[1];
+    if (port_count > kMaxRouterPorts || packet.length != static_cast<std::uint16_t>(14 + port_count * 14)) return false;
+
+    NorthbridgeSnapshot next{};
+    next.forwarded_packets = read_u32(packet, 2);
+    next.dropped_packets = read_u32(packet, 6);
+    next.route_movement_events = read_u32(packet, 10);
+
+    std::size_t offset = 14;
+    for (std::size_t i = 0; i < port_count; ++i) {
+        const auto port = packet.payload[offset];
+        const auto attached = packet.payload[offset + 1];
+        if (port >= kMaxRouterPorts || attached > 1u) return false;
+        auto& stats = next.ports[port];
+        stats.attached = attached != 0;
+        stats.rx_packets = read_u32(packet, offset + 2);
+        stats.tx_packets = read_u32(packet, offset + 6);
+        stats.rx_bytes = read_u32(packet, offset + 10);
+        offset += 14;
+    }
+
+    next.valid = true;
+    next.updated_at_ms = now_ms;
+    northbridge_state_ = next;
     return true;
 }
 
@@ -119,6 +155,7 @@ void MotorcycleComputer::dispatch(const Packet& packet, std::uint32_t now_ms) {
     if (decode_lighting_state(packet, now_ms)) return;
     if (decode_lighting_diagnostics(packet, now_ms)) return;
     if (decode_lighting_fault(packet, now_ms)) return;
+    if (decode_northbridge_diagnostics(packet, now_ms)) return;
     if (decode_security_state(packet, now_ms)) return;
     decode_security_event(packet, now_ms);
 }
@@ -138,6 +175,7 @@ MotorcycleSnapshot MotorcycleComputer::snapshot() const {
     result.lighting = lighting_state_;
     result.lighting_diagnostics = lighting_diagnostics_;
     result.lighting_faults = lighting_faults_;
+    result.northbridge = northbridge_state_;
     result.security = security_state_;
     result.tx_failures = node_.tx_failures();
     result.rx_drops = node_.rx_drops();
@@ -150,8 +188,15 @@ bool MotorcycleComputer::request_all_states(std::uint32_t now_ms) {
     lighting_request.type = MessageType::GetState;
     lighting_request.length = 0;
     const bool lighting_ok = node_.send(lighting_request, now_ms, false);
+
+    Packet northbridge_request{};
+    northbridge_request.destination = NodeAddress::Northbridge;
+    northbridge_request.type = MessageType::Diagnostic;
+    northbridge_request.length = 0;
+    const bool northbridge_ok = node_.send(northbridge_request, now_ms, false);
+
     const bool security_ok = security_.request_state(now_ms);
-    return lighting_ok && security_ok;
+    return lighting_ok && northbridge_ok && security_ok;
 }
 
 } // namespace bike
