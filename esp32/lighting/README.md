@@ -7,7 +7,8 @@ This firmware is the hardware target for the lighting southbridge.
 - Runs as node address `0x20` (`Lighting`).
 - Communicates with the northbridge over UART2 using the shared motorcycle protocol.
 - Receives typed lighting commands through `LightingController` / `LightingServer`.
-- Reads the physical left/right indicator switches, brake input and high-beam switch locally.
+- Reads the physical left/right indicator switches, front/rear brake switches and high-beam switch locally.
+- Debounces all local lighting inputs in the portable control layer.
 - Runs indicator flashing locally, independent of the Raspberry Pi or northbridge.
 - Drives the four switched lighting outputs through `GpioLightingHardware`.
 - Starts every switched output in a defined OFF state.
@@ -18,13 +19,26 @@ This firmware is the hardware target for the lighting southbridge.
 
 Physical motorcycle controls remain authoritative. The Pi can request outputs, but loss of the Pi or northbridge does not remove basic lighting operation.
 
-- A physical brake input forces the brake-bright circuit ON.
+- Either front or rear brake input forces the brake-bright circuit ON.
 - A physical high-beam input forces the high-beam circuit ON.
 - A physical left or right indicator request runs a local 500 ms half-period flasher.
 - If both indicator inputs are active, both sides flash together (hazard-like behavior).
 - When no local input is active, the output falls back to the most recent remote commanded state.
+- Local inputs are debounced with a 25 ms default interval. The interval is configurable in `LightingLocalControl`.
 
 This split intentionally keeps deterministic motorcycle I/O at the edge rather than making Linux/network availability part of the lighting control path.
+
+## Headlight policy
+
+The controller switches the **high-beam circuit only**. The low-beam feed remains independently supplied according to the motorcycle wiring design. Therefore a software or network failure in this controller cannot turn the low-beam supply off merely because the high-beam state changes.
+
+The effective high-beam output is:
+
+```text
+physical high-beam request OR remote high-beam request
+```
+
+The final headlight wiring and relay/MOSFET arrangement must still be verified against the actual Yamaha harness and lamp type before vehicle connection.
 
 ## Initial bench pin map
 
@@ -34,14 +48,15 @@ This split intentionally keeps deterministic motorcycle I/O at the edge rather t
 | Network TX | 17 |
 | Left switch input | 18 |
 | Right switch input | 19 |
-| Brake input | 21 |
+| Front brake input | 21 |
 | High-beam input | 22 |
+| Rear brake input | 23 |
 | Left indicator output | 25 |
 | Right indicator output | 26 |
 | Brake-bright output | 27 |
 | High-beam output | 32 |
 
-The four bench inputs are active-low with internal pull-ups. The final motorcycle interface must not connect 12 V vehicle wiring directly to ESP32 GPIO. Use the appropriate automotive input conditioning/protection for the final harness.
+Each input has an explicit software polarity setting. The current bench defaults are active-low with internal pull-ups. The final motorcycle interface must not connect 12 V vehicle wiring directly to ESP32 GPIO. Use appropriate automotive input conditioning and transient protection for the final harness.
 
 These are **bench defaults**, not a final motorcycle wiring specification. Verify them against the exact ESP32-WROOM board, PCB, boot-strapping constraints and power-stage wiring before connecting vehicle loads.
 
