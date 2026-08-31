@@ -22,6 +22,7 @@ const char* security_mode_text(bike::SecurityMode mode) {
         case bike::SecurityMode::Unlocked: return "UNLOCKED";
         case bike::SecurityMode::Locked: return "LOCKED";
         case bike::SecurityMode::Alarm: return "ALARM";
+        case bike::SecurityMode::LockPending: return "LOCK_PENDING";
     }
     return "UNKNOWN";
 }
@@ -55,14 +56,24 @@ void print_status(const bike::MotorcycleSnapshot& snapshot) {
     if (snapshot.northbridge.valid) {
         std::cout << "northbridge-network: forwarded=" << snapshot.northbridge.forwarded_packets
                   << " dropped=" << snapshot.northbridge.dropped_packets
-                  << " route-movements=" << snapshot.northbridge.route_movement_events << '\n';
+                  << " route-movements=" << snapshot.northbridge.route_movement_events
+                  << " topology-faults=" << snapshot.northbridge.topology_fault_events << '\n';
         for (std::size_t i = 0; i < snapshot.northbridge.ports.size(); ++i) {
             const auto& port = snapshot.northbridge.ports[i];
             if (!port.attached) continue;
             std::cout << "northbridge-port " << i
                       << ": rx_packets=" << port.rx_packets
                       << " tx_packets=" << port.tx_packets
-                      << " rx_bytes=" << port.rx_bytes << '\n';
+                      << " rx_bytes=" << port.rx_bytes
+                      << " dropped=" << port.dropped_packets
+                      << " malformed=" << port.malformed_frames << '\n';
+        }
+        if (snapshot.northbridge.topology_fault_active) {
+            std::cout << "northbridge-topology-fault: node=0x" << std::hex
+                      << static_cast<unsigned>(bike::to_u8(snapshot.northbridge.topology_fault_node))
+                      << std::dec
+                      << " expected-port=" << static_cast<unsigned>(snapshot.northbridge.expected_port)
+                      << " actual-port=" << static_cast<unsigned>(snapshot.northbridge.actual_port) << '\n';
         }
     } else {
         std::cout << "northbridge-network: diagnostics unknown\n";
