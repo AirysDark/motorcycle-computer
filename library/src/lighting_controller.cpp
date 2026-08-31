@@ -40,6 +40,14 @@ bool LightingController::handle_system_packet(const Packet& packet, std::uint32_
         return true;
     }
 
+    if (packet.type == MessageType::GetState) {
+        if ((packet.flags & FlagAckRequired) != 0) {
+            node_.send_ack(packet.source, packet.sequence, false);
+        }
+        server_.publish_state(packet.source, now_ms);
+        return true;
+    }
+
     return false;
 }
 
