@@ -35,6 +35,51 @@ bool MotorcycleComputer::decode_lighting_state(const Packet& packet, std::uint32
     return true;
 }
 
+bool MotorcycleComputer::decode_lighting_diagnostics(const Packet& packet, std::uint32_t now_ms) {
+    if (packet.source != NodeAddress::Lighting ||
+        packet.type != MessageType::LightingDiagnostic || packet.length != 24) {
+        return false;
+    }
+
+    LightingDiagnosticSnapshot next{};
+    for (std::size_t i = 0; i < 4; ++i) {
+        const auto offset = i * 6;
+        const auto raw_output = packet.payload[offset];
+        const auto raw_driven = packet.payload[offset + 1];
+        const auto raw_feedback = packet.payload[offset + 2];
+        const auto raw_status = packet.payload[offset + 3];
+        if (raw_driven > 1u || raw_feedback > 1u ||
+            raw_status > static_cast<std::uint8_t>(LightingElectricalStatus::OverCurrent)) {
+            return false;
+        }
+
+        const auto output = static_cast<LightingOutput>(raw_output);
+        switch (output) {
+            case LightingOutput::LeftIndicator:
+            case LightingOutput::RightIndicator:
+            case LightingOutput::BrakeBright:
+            case LightingOutput::HighBeam:
+                break;
+            default:
+                return false;
+        }
+
+        auto& channel = next.channels[i];
+        channel.output = output;
+        channel.driven = raw_driven != 0;
+        channel.feedback_available = raw_feedback != 0;
+        channel.status = static_cast<LightingElectricalStatus>(raw_status);
+        channel.current_ma = static_cast<std::uint16_t>(
+            (static_cast<std::uint16_t>(packet.payload[offset + 4]) << 8) |
+             static_cast<std::uint16_t>(packet.payload[offset + 5]));
+    }
+
+    next.valid = true;
+    next.updated_at_ms = now_ms;
+    lighting_diagnostics_ = next;
+    return true;
+}
+
 bool MotorcycleComputer::decode_security_state(const Packet& packet, std::uint32_t now_ms) {
     if (packet.source != NodeAddress::Security || packet.type != MessageType::SecurityState || packet.length != 6) {
         return false;
@@ -76,6 +121,7 @@ bool MotorcycleComputer::decode_security_event(const Packet& packet, std::uint32
 void MotorcycleComputer::dispatch(const Packet& packet, std::uint32_t now_ms) {
     supervisor_.observe(packet, now_ms);
     if (decode_lighting_state(packet, now_ms)) return;
+    if (decode_lighting_diagnostics(packet, now_ms)) return;
     if (decode_security_state(packet, now_ms)) return;
     decode_security_event(packet, now_ms);
 }
@@ -96,6 +142,7 @@ MotorcycleSnapshot MotorcycleComputer::snapshot() const {
     result.security_node = supervisor_.status(NodeAddress::Security);
     result.northbridge_node = supervisor_.status(NodeAddress::Northbridge);
     result.lighting = lighting_state_;
+    result.lighting_diagnostics = lighting_diagnostics_;
     result.security = security_state_;
     result.tx_failures = node_.tx_failures();
     result.rx_drops = node_.rx_drops();
