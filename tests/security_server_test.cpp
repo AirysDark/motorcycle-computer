@@ -41,6 +41,7 @@ int main() {
     bike::BikeNode node(bike::NodeAddress::Security, transport);
     FakeSecurityHardware hardware;
     bike::SecurityServer server(node, hardware);
+    server.set_alarm_duration_ms(1000);
 
     bike::Packet lock{};
     lock.source = bike::NodeAddress::MainComputer;
@@ -55,49 +56,83 @@ int main() {
     assert(server.mode() == bike::SecurityMode::Locked);
     assert(hardware.inhibit);
 
+    // Trigger must persist for 100 ms before it can start the alarm.
     hardware.trigger = true;
     server.service(200);
+    assert(server.mode() == bike::SecurityMode::Locked);
+    server.service(299);
+    assert(server.mode() == bike::SecurityMode::Locked);
+    server.service(300);
     assert(server.mode() == bike::SecurityMode::Alarm);
     assert(hardware.alarm);
+
+    // Alarm duration is bounded. A stuck trigger cannot immediately retrigger it.
+    server.service(1299);
+    assert(hardware.alarm);
+    server.service(1300);
+    assert(server.mode() == bike::SecurityMode::Locked);
+    assert(!hardware.alarm);
+    server.service(1400);
+    assert(!hardware.alarm);
+
+    // A genuine release resets the trigger edge detector.
+    hardware.trigger = false;
+    server.service(1401);
 
     bike::Packet unlock = lock;
     unlock.sequence = 2;
     unlock.payload[0] = static_cast<std::uint8_t>(bike::SecurityCommand::Unlock);
-    assert(server.handle_packet(unlock, 300));
+    assert(server.handle_packet(unlock, 1500));
     assert(server.mode() == bike::SecurityMode::Unlocked);
     assert(!hardware.inhibit);
     assert(!hardware.alarm);
 
-    // Locking while running enters a pending state rather than arming immediately.
-    hardware.trigger = false;
+    // Locking while running enters pending immediately and keeps inhibit OFF.
     hardware.running = true;
     bike::Packet relock = lock;
     relock.sequence = 3;
-    assert(server.handle_packet(relock, 400));
+    assert(server.handle_packet(relock, 1600));
     assert(server.mode() == bike::SecurityMode::LockPending);
     assert(!hardware.inhibit);
-    assert(!hardware.alarm);
 
-    // Shock inputs are ignored while lock is pending, so riding cannot trigger the alarm.
+    // Warning and trigger require persistence, and neither can alarm while pending.
     hardware.warning = true;
     hardware.trigger = true;
-    server.service(450);
+    server.service(1700);
+    assert(!server.state().shock_warning);
+    assert(!server.state().shock_trigger);
+    server.service(1749);
+    assert(!server.state().shock_warning);
+    server.service(1750);
+    assert(server.state().shock_warning);
+    server.service(1800);
+    assert(server.state().shock_trigger);
     assert(server.mode() == bike::SecurityMode::LockPending);
-    assert(!hardware.inhibit);
     assert(!hardware.alarm);
 
-    // Once the engine stops, pending automatically becomes fully locked.
-    hardware.warning = false;
-    hardware.trigger = false;
+    // Engine-running asserts immediately, but engine-stop must remain stable for 250 ms.
     hardware.running = false;
-    server.service(500);
+    server.service(1900);
+    assert(server.mode() == bike::SecurityMode::LockPending);
+    assert(!hardware.inhibit);
+    server.service(2149);
+    assert(server.mode() == bike::SecurityMode::LockPending);
+    server.service(2150);
     assert(server.mode() == bike::SecurityMode::Locked);
     assert(hardware.inhibit);
     assert(!hardware.alarm);
 
-    // A new shock trigger after arming may now enter alarm mode.
+    // A trigger that was already active during pending does not alarm at the arm transition.
+    hardware.warning = false;
+    hardware.trigger = false;
+    server.service(2160);
+    assert(!server.state().shock_trigger);
+
+    // After a real release, a new persistent trigger can alarm normally.
     hardware.trigger = true;
-    server.service(600);
+    server.service(2200);
+    assert(server.mode() == bike::SecurityMode::Locked);
+    server.service(2300);
     assert(server.mode() == bike::SecurityMode::Alarm);
     assert(hardware.alarm);
 
