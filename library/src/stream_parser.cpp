@@ -21,6 +21,7 @@ bool StreamParser::push(std::uint8_t byte, Packet& out_packet) {
     }
 
     if (length_ >= buffer_.size()) {
+        ++rejected_frames_;
         reset();
         return false;
     }
@@ -30,6 +31,7 @@ bool StreamParser::push(std::uint8_t byte, Packet& out_packet) {
     if (length_ == kHeaderSize) {
         const std::uint16_t payload_length = buffer_[9];
         if (payload_length > kMaxPayloadSize) {
+            ++rejected_frames_;
             reset();
             return false;
         }
@@ -38,6 +40,7 @@ bool StreamParser::push(std::uint8_t byte, Packet& out_packet) {
 
     if (expected_ != 0 && length_ == expected_) {
         const auto status = decode_packet(buffer_.data(), length_, out_packet);
+        if (status != DecodeStatus::Ok) ++rejected_frames_;
         reset();
         return status == DecodeStatus::Ok;
     }
