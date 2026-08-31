@@ -20,12 +20,25 @@ constexpr int kRightIndicatorPin = 26;
 constexpr int kBrakeBrightPin    = 27;
 constexpr int kHighBeamPin       = 32;
 
-// Bench input defaults. Inputs are active-low and use the ESP32 internal pull-up.
-// The final motorcycle interface must provide automotive-level input protection.
-constexpr int kLeftSwitchPin  = 18;
-constexpr int kRightSwitchPin = 19;
-constexpr int kBrakeInputPin  = 21;
-constexpr int kHighBeamInputPin = 22;
+enum class InputPolarity : std::uint8_t {
+    ActiveLow,
+    ActiveHigh
+};
+
+// Bench input defaults. Each input has an explicit polarity so the final
+// conditioned motorcycle interface can change electrical sense without
+// changing the portable lighting-control logic.
+constexpr int kLeftSwitchPin       = 18;
+constexpr int kRightSwitchPin      = 19;
+constexpr int kFrontBrakeInputPin  = 21;
+constexpr int kRearBrakeInputPin   = 23;
+constexpr int kHighBeamInputPin    = 22;
+
+constexpr InputPolarity kLeftSwitchPolarity      = InputPolarity::ActiveLow;
+constexpr InputPolarity kRightSwitchPolarity     = InputPolarity::ActiveLow;
+constexpr InputPolarity kFrontBrakePolarity      = InputPolarity::ActiveLow;
+constexpr InputPolarity kRearBrakePolarity       = InputPolarity::ActiveLow;
+constexpr InputPolarity kHighBeamSwitchPolarity  = InputPolarity::ActiveLow;
 
 class ArduinoSerialTransport final : public bike::Transport {
 public:
@@ -106,26 +119,41 @@ private:
 class GpioLightingInputs final : public bike::LightingInputs {
 public:
     void begin() {
-        pinMode(kLeftSwitchPin, INPUT_PULLUP);
-        pinMode(kRightSwitchPin, INPUT_PULLUP);
-        pinMode(kBrakeInputPin, INPUT_PULLUP);
-        pinMode(kHighBeamInputPin, INPUT_PULLUP);
+        configure_input(kLeftSwitchPin, kLeftSwitchPolarity);
+        configure_input(kRightSwitchPin, kRightSwitchPolarity);
+        configure_input(kFrontBrakeInputPin, kFrontBrakePolarity);
+        configure_input(kRearBrakeInputPin, kRearBrakePolarity);
+        configure_input(kHighBeamInputPin, kHighBeamSwitchPolarity);
     }
 
     bool left_indicator_requested() const override {
-        return digitalRead(kLeftSwitchPin) == LOW;
+        return active(kLeftSwitchPin, kLeftSwitchPolarity);
     }
 
     bool right_indicator_requested() const override {
-        return digitalRead(kRightSwitchPin) == LOW;
+        return active(kRightSwitchPin, kRightSwitchPolarity);
     }
 
-    bool brake_active() const override {
-        return digitalRead(kBrakeInputPin) == LOW;
+    bool front_brake_active() const override {
+        return active(kFrontBrakeInputPin, kFrontBrakePolarity);
+    }
+
+    bool rear_brake_active() const override {
+        return active(kRearBrakeInputPin, kRearBrakePolarity);
     }
 
     bool high_beam_requested() const override {
-        return digitalRead(kHighBeamInputPin) == LOW;
+        return active(kHighBeamInputPin, kHighBeamSwitchPolarity);
+    }
+
+private:
+    static void configure_input(int pin, InputPolarity polarity) {
+        pinMode(pin, polarity == InputPolarity::ActiveLow ? INPUT_PULLUP : INPUT_PULLDOWN);
+    }
+
+    static bool active(int pin, InputPolarity polarity) {
+        const int level = digitalRead(pin);
+        return polarity == InputPolarity::ActiveLow ? level == LOW : level == HIGH;
     }
 };
 
