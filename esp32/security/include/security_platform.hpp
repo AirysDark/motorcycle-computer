@@ -1,7 +1,9 @@
 #pragma once
 
 #include <Arduino.h>
+#include <Preferences.h>
 #include "bike/security_hardware.hpp"
+#include "bike/security_persistence.hpp"
 #include "bike/transport.hpp"
 
 namespace security_platform {
@@ -37,6 +39,29 @@ public:
 
 private:
     HardwareSerial& serial_;
+};
+
+class PreferencesSecurityPersistence final : public bike::SecurityPersistence {
+public:
+    bool begin() {
+        opened_ = preferences_.begin("bike-security", false);
+        return opened_;
+    }
+
+    bool load_armed(bool& armed) override {
+        if (!opened_) return false;
+        armed = preferences_.getBool("armed", false);
+        return true;
+    }
+
+    bool save_armed(bool armed) override {
+        if (!opened_) return false;
+        return preferences_.putBool("armed", armed) == 1;
+    }
+
+private:
+    Preferences preferences_{};
+    bool opened_{false};
 };
 
 class GpioSecurityHardware final : public bike::SecurityHardware {
