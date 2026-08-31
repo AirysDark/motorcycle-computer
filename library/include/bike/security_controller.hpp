@@ -6,8 +6,8 @@ namespace bike {
 
 class SecurityController {
 public:
-    SecurityController(BikeNode& node, SecurityHardware& hardware)
-        : node_(node), server_(node, hardware) {
+    SecurityController(BikeNode& node, SecurityHardware& hardware, SecurityPersistence* persistence = nullptr)
+        : node_(node), server_(node, hardware, persistence) {
         node_.set_auto_ack(false);
     }
 
