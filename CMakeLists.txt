@@ -18,6 +18,7 @@ add_library(bike_protocol
     library/src/security.cpp
     library/src/security_server.cpp
     library/src/security_controller.cpp
+    library/src/motorcycle_computer.cpp
 )
 
 target_include_directories(bike_protocol PUBLIC
@@ -54,6 +55,17 @@ add_executable(security_server_test
     tests/security_server_test.cpp
 )
 target_link_libraries(security_server_test PRIVATE bike_protocol)
+
+if(UNIX)
+    add_executable(motorcycle_main
+        raspberry-pi/main-computer/src/main.cpp
+        raspberry-pi/main-computer/src/posix_serial_transport.cpp
+    )
+    target_include_directories(motorcycle_main PRIVATE
+        raspberry-pi/main-computer/include
+    )
+    target_link_libraries(motorcycle_main PRIVATE bike_protocol)
+endif()
 
 enable_testing()
 add_test(NAME protocol_smoke_test COMMAND protocol_smoke_test)
