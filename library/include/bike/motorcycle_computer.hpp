@@ -1,6 +1,8 @@
 #pragma once
+#include <array>
 #include <cstdint>
 #include "bike/lighting.hpp"
+#include "bike/lighting_diagnostics.hpp"
 #include "bike/security.hpp"
 #include "bike/supervisor.hpp"
 
@@ -12,6 +14,12 @@ struct LightingSnapshot {
     bool right_indicator{false};
     bool brake_bright{false};
     bool high_beam{false};
+    std::uint32_t updated_at_ms{0};
+};
+
+struct LightingDiagnosticSnapshot {
+    bool valid{false};
+    std::array<LightingChannelDiagnostic, 4> channels{};
     std::uint32_t updated_at_ms{0};
 };
 
@@ -34,6 +42,7 @@ struct MotorcycleSnapshot {
     const NodeStatus* security_node{nullptr};
     const NodeStatus* northbridge_node{nullptr};
     LightingSnapshot lighting{};
+    LightingDiagnosticSnapshot lighting_diagnostics{};
     SecuritySnapshot security{};
     std::uint32_t tx_failures{0};
     std::uint32_t rx_drops{0};
@@ -57,6 +66,7 @@ public:
 private:
     void dispatch(const Packet& packet, std::uint32_t now_ms);
     bool decode_lighting_state(const Packet& packet, std::uint32_t now_ms);
+    bool decode_lighting_diagnostics(const Packet& packet, std::uint32_t now_ms);
     bool decode_security_state(const Packet& packet, std::uint32_t now_ms);
     bool decode_security_event(const Packet& packet, std::uint32_t now_ms);
 
@@ -65,6 +75,7 @@ private:
     SecurityClient security_;
     NetworkSupervisor supervisor_;
     LightingSnapshot lighting_state_{};
+    LightingDiagnosticSnapshot lighting_diagnostics_{};
     SecuritySnapshot security_state_{};
 };
 
