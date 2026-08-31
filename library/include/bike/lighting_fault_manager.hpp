@@ -5,10 +5,7 @@
 
 namespace bike {
 
-enum class LightingFaultPolicy : std::uint8_t {
-    ReportOnly = 0,
-    ShutdownOnOverCurrent = 1
-};
+enum class LightingFaultPolicy : std::uint8_t { ReportOnly = 0, ShutdownOnOverCurrent = 1 };
 
 struct LightingFaultRecord {
     LightingElectricalStatus active_status{LightingElectricalStatus::Off};
@@ -23,19 +20,22 @@ struct LightingFaultRecord {
 
 class LightingFaultManager {
 public:
-    LightingFaultManager(LightingDiagnostics& diagnostics, LightingHardware& outputs)
-        : diagnostics_(diagnostics), outputs_(outputs) {}
+    LightingFaultManager(BikeNode& node, LightingDiagnostics& diagnostics, LightingHardware& outputs)
+        : node_(node), diagnostics_(diagnostics), outputs_(outputs) {}
 
     void set_policy(LightingOutput output, LightingFaultPolicy policy);
     void set_confirm_samples(std::uint8_t value) { confirm_samples_ = value == 0 ? 1 : value; }
     void service(std::uint32_t now_ms);
-    bool clear_latch(LightingOutput output);
+    bool clear_latch(LightingOutput output, std::uint32_t now_ms = 0);
     const LightingFaultRecord& record(LightingOutput output) const;
 
 private:
     static std::size_t index_for(LightingOutput output);
     void update_channel(LightingOutput output, std::uint32_t now_ms);
+    bool publish_fault(LightingOutput output, const LightingFaultRecord& record,
+                       MessageType type, std::uint32_t now_ms);
 
+    BikeNode& node_;
     LightingDiagnostics& diagnostics_;
     LightingHardware& outputs_;
     std::array<LightingFaultPolicy, 4> policies_{};
