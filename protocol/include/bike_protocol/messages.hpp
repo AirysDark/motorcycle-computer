@@ -13,6 +13,7 @@ enum class MessageType : std::uint8_t {
 
     SetOutput       = 0x20,
     InputEvent      = 0x21,
+    LightingDiagnostic = 0x22,
 
     ConfigRead      = 0x30,
     ConfigWrite     = 0x31,
