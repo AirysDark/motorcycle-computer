@@ -17,34 +17,22 @@ ArduinoSerialTransport security_transport(SecuritySerial);
 bike::NorthbridgeRuntime northbridge;
 
 void setup() {
-    PiSerial.begin(
-        northbridge_platform::kNetworkBaud,
-        SERIAL_8N1,
-        northbridge_platform::kPiRxPin,
-        northbridge_platform::kPiTxPin);
-
-    LightingSerial.begin(
-        northbridge_platform::kNetworkBaud,
-        SERIAL_8N1,
-        northbridge_platform::kLightingRxPin,
-        northbridge_platform::kLightingTxPin);
-
-    SecuritySerial.begin(
-        northbridge_platform::kNetworkBaud,
-        SERIAL_8N1,
-        northbridge_platform::kSecurityRxPin,
-        northbridge_platform::kSecurityTxPin);
+    PiSerial.begin(northbridge_platform::kNetworkBaud, SERIAL_8N1,
+                   northbridge_platform::kPiRxPin, northbridge_platform::kPiTxPin);
+    LightingSerial.begin(northbridge_platform::kNetworkBaud, SERIAL_8N1,
+                         northbridge_platform::kLightingRxPin, northbridge_platform::kLightingTxPin);
+    SecuritySerial.begin(northbridge_platform::kNetworkBaud, SERIAL_8N1,
+                         northbridge_platform::kSecurityRxPin, northbridge_platform::kSecurityTxPin);
 
     northbridge.attach_port(northbridge_platform::kPortPi, pi_transport);
     northbridge.attach_port(northbridge_platform::kPortLighting, lighting_transport);
     northbridge.attach_port(northbridge_platform::kPortSecurity, security_transport);
 
-    // Seed known topology. Source learning can still update a route if a node
-    // is physically moved to a different port during development.
-    northbridge.set_route(bike::NodeAddress::MainComputer, northbridge_platform::kPortPi);
-    northbridge.set_route(bike::NodeAddress::DiagnosticComputer, northbridge_platform::kPortPi);
-    northbridge.set_route(bike::NodeAddress::Lighting, northbridge_platform::kPortLighting);
-    northbridge.set_route(bike::NodeAddress::Security, northbridge_platform::kPortSecurity);
+    northbridge.bind_node(bike::NodeAddress::MainComputer, northbridge_platform::kPortPi);
+    northbridge.bind_node(bike::NodeAddress::DiagnosticComputer, northbridge_platform::kPortPi);
+    northbridge.bind_node(bike::NodeAddress::Lighting, northbridge_platform::kPortLighting);
+    northbridge.bind_node(bike::NodeAddress::Security, northbridge_platform::kPortSecurity);
+    northbridge.set_topology_enforced(true);
 }
 
 void loop() {
