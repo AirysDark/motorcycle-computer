@@ -1,0 +1,35 @@
+name: ESP32-S3 northbridge build
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'esp32/northbridge/**'
+      - 'library/**'
+      - 'protocol/**'
+      - '.github/workflows/esp32-northbridge-build.yml'
+  pull_request:
+    paths:
+      - 'esp32/northbridge/**'
+      - 'library/**'
+      - 'protocol/**'
+      - '.github/workflows/esp32-northbridge-build.yml'
+
+jobs:
+  platformio:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+
+      - name: Install PlatformIO
+        run: pip install platformio
+
+      - name: Build northbridge firmware
+        working-directory: esp32/northbridge
+        run: pio run
