@@ -23,6 +23,14 @@ struct LightingDiagnosticSnapshot {
     std::uint32_t updated_at_ms{0};
 };
 
+struct LightingFaultSnapshot {
+    bool latched{false};
+    LightingElectricalStatus status{LightingElectricalStatus::Off};
+    bool shutdown_applied{false};
+    std::uint32_t occurrence_count{0};
+    std::uint32_t updated_at_ms{0};
+};
+
 struct SecuritySnapshot {
     bool valid{false};
     SecurityMode mode{SecurityMode::Unlocked};
@@ -43,6 +51,7 @@ struct MotorcycleSnapshot {
     const NodeStatus* northbridge_node{nullptr};
     LightingSnapshot lighting{};
     LightingDiagnosticSnapshot lighting_diagnostics{};
+    std::array<LightingFaultSnapshot, 4> lighting_faults{};
     SecuritySnapshot security{};
     std::uint32_t tx_failures{0};
     std::uint32_t rx_drops{0};
@@ -60,15 +69,16 @@ public:
     void begin(std::uint32_t now_ms);
     void service(std::uint32_t now_ms);
     MotorcycleSnapshot snapshot() const;
-
     bool request_all_states(std::uint32_t now_ms);
 
 private:
     void dispatch(const Packet& packet, std::uint32_t now_ms);
     bool decode_lighting_state(const Packet& packet, std::uint32_t now_ms);
     bool decode_lighting_diagnostics(const Packet& packet, std::uint32_t now_ms);
+    bool decode_lighting_fault(const Packet& packet, std::uint32_t now_ms);
     bool decode_security_state(const Packet& packet, std::uint32_t now_ms);
     bool decode_security_event(const Packet& packet, std::uint32_t now_ms);
+    static std::size_t lighting_index(LightingOutput output);
 
     BikeNode& node_;
     LightingClient lighting_;
@@ -76,6 +86,7 @@ private:
     NetworkSupervisor supervisor_;
     LightingSnapshot lighting_state_{};
     LightingDiagnosticSnapshot lighting_diagnostics_{};
+    std::array<LightingFaultSnapshot, 4> lighting_faults_{};
     SecuritySnapshot security_state_{};
 };
 
