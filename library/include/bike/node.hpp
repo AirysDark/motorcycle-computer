@@ -29,6 +29,8 @@ public:
 
     void set_ack_timeout_ms(std::uint32_t value) { ack_timeout_ms_ = value; }
     void set_max_retries(std::uint8_t value) { max_retries_ = value; }
+    void set_auto_ack(bool enabled) { auto_ack_ = enabled; }
+    bool auto_ack() const { return auto_ack_; }
     std::uint32_t tx_failures() const { return tx_failures_; }
 
 private:
@@ -43,6 +45,7 @@ private:
     std::uint32_t ack_timeout_ms_{250};
     std::uint8_t max_retries_{3};
     std::uint32_t tx_failures_{0};
+    bool auto_ack_{true};
 };
 
 } // namespace bike
