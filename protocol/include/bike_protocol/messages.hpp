@@ -23,7 +23,16 @@ enum class MessageType : std::uint8_t {
     DeviceInfo      = 0x50,
     DeviceDiscovery = 0x51,
 
-    Diagnostic      = 0x60
+    Diagnostic      = 0x60,
+
+    SecurityCommand = 0x70,
+    SecurityState   = 0x71,
+    SecurityEvent   = 0x72,
+
+    // Reserved for the future fob/authentication layer.
+    AuthRequest     = 0x78,
+    AuthResult      = 0x79,
+    FobPresent      = 0x7A
 };
 
 enum PacketFlags : std::uint8_t {
