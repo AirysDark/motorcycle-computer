@@ -68,18 +68,38 @@ int main() {
     assert(!hardware.inhibit);
     assert(!hardware.alarm);
 
-    // Safety behavior: locking while running must never assert start inhibit.
+    // Locking while running enters a pending state rather than arming immediately.
+    hardware.trigger = false;
     hardware.running = true;
     bike::Packet relock = lock;
     relock.sequence = 3;
     assert(server.handle_packet(relock, 400));
-    assert(server.mode() == bike::SecurityMode::Locked);
+    assert(server.mode() == bike::SecurityMode::LockPending);
     assert(!hardware.inhibit);
+    assert(!hardware.alarm);
 
-    // Once the engine is no longer running, the inhibit may safely engage.
+    // Shock inputs are ignored while lock is pending, so riding cannot trigger the alarm.
+    hardware.warning = true;
+    hardware.trigger = true;
+    server.service(450);
+    assert(server.mode() == bike::SecurityMode::LockPending);
+    assert(!hardware.inhibit);
+    assert(!hardware.alarm);
+
+    // Once the engine stops, pending automatically becomes fully locked.
+    hardware.warning = false;
+    hardware.trigger = false;
     hardware.running = false;
     server.service(500);
+    assert(server.mode() == bike::SecurityMode::Locked);
     assert(hardware.inhibit);
+    assert(!hardware.alarm);
+
+    // A new shock trigger after arming may now enter alarm mode.
+    hardware.trigger = true;
+    server.service(600);
+    assert(server.mode() == bike::SecurityMode::Alarm);
+    assert(hardware.alarm);
 
     return 0;
 }
