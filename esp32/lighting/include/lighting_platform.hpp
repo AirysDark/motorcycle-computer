@@ -4,6 +4,7 @@
 #include <cstddef>
 #include <cstdint>
 #include "bike/lighting_hardware.hpp"
+#include "bike/lighting_inputs.hpp"
 #include "bike/transport.hpp"
 
 namespace lighting_platform {
@@ -18,6 +19,13 @@ constexpr int kLeftIndicatorPin  = 25;
 constexpr int kRightIndicatorPin = 26;
 constexpr int kBrakeBrightPin    = 27;
 constexpr int kHighBeamPin       = 32;
+
+// Bench input defaults. Inputs are active-low and use the ESP32 internal pull-up.
+// The final motorcycle interface must provide automotive-level input protection.
+constexpr int kLeftSwitchPin  = 18;
+constexpr int kRightSwitchPin = 19;
+constexpr int kBrakeInputPin  = 21;
+constexpr int kHighBeamInputPin = 22;
 
 class ArduinoSerialTransport final : public bike::Transport {
 public:
@@ -44,8 +52,6 @@ private:
 class GpioLightingHardware final : public bike::LightingHardware {
 public:
     void begin() {
-        // Set output latches LOW before enabling the pins as outputs. This keeps
-        // all switched lighting channels in their defined OFF state at startup.
         configure_output(kLeftIndicatorPin);
         configure_output(kRightIndicatorPin);
         configure_output(kBrakeBrightPin);
@@ -95,6 +101,32 @@ private:
     }
 
     bool state_[4]{false, false, false, false};
+};
+
+class GpioLightingInputs final : public bike::LightingInputs {
+public:
+    void begin() {
+        pinMode(kLeftSwitchPin, INPUT_PULLUP);
+        pinMode(kRightSwitchPin, INPUT_PULLUP);
+        pinMode(kBrakeInputPin, INPUT_PULLUP);
+        pinMode(kHighBeamInputPin, INPUT_PULLUP);
+    }
+
+    bool left_indicator_requested() const override {
+        return digitalRead(kLeftSwitchPin) == LOW;
+    }
+
+    bool right_indicator_requested() const override {
+        return digitalRead(kRightSwitchPin) == LOW;
+    }
+
+    bool brake_active() const override {
+        return digitalRead(kBrakeInputPin) == LOW;
+    }
+
+    bool high_beam_requested() const override {
+        return digitalRead(kHighBeamInputPin) == LOW;
+    }
 };
 
 } // namespace lighting_platform
