@@ -15,6 +15,9 @@ add_library(bike_protocol
     library/src/lighting.cpp
     library/src/lighting_server.cpp
     library/src/lighting_controller.cpp
+    library/src/security.cpp
+    library/src/security_server.cpp
+    library/src/security_controller.cpp
 )
 
 target_include_directories(bike_protocol PUBLIC
@@ -47,9 +50,15 @@ add_executable(northbridge_runtime_test
 )
 target_link_libraries(northbridge_runtime_test PRIVATE bike_protocol)
 
+add_executable(security_server_test
+    tests/security_server_test.cpp
+)
+target_link_libraries(security_server_test PRIVATE bike_protocol)
+
 enable_testing()
 add_test(NAME protocol_smoke_test COMMAND protocol_smoke_test)
 add_test(NAME network_runtime_test COMMAND network_runtime_test)
 add_test(NAME supervisor_lighting_test COMMAND supervisor_lighting_test)
 add_test(NAME lighting_server_test COMMAND lighting_server_test)
 add_test(NAME northbridge_runtime_test COMMAND northbridge_runtime_test)
+add_test(NAME security_server_test COMMAND security_server_test)
