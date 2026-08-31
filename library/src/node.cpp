@@ -62,8 +62,31 @@ void BikeNode::handle_control_packet(const Packet& packet) {
     }
 }
 
+bool BikeNode::enqueue_rx(const Packet& packet) {
+    if (rx_count_ >= rx_queue_.size()) {
+        ++rx_drops_;
+        return false;
+    }
+
+    rx_queue_[rx_tail_] = packet;
+    rx_tail_ = (rx_tail_ + 1) % rx_queue_.size();
+    ++rx_count_;
+    return true;
+}
+
+bool BikeNode::dequeue_rx(Packet& packet) {
+    if (rx_count_ == 0) return false;
+    packet = rx_queue_[rx_head_];
+    rx_head_ = (rx_head_ + 1) % rx_queue_.size();
+    --rx_count_;
+    return true;
+}
+
 bool BikeNode::poll(Packet& out_packet, std::uint32_t now_ms) {
     (void)now_ms;
+
+    if (dequeue_rx(out_packet)) return true;
+
     std::array<std::uint8_t, 64> chunk{};
     const auto count = transport_.read(chunk.data(), chunk.size());
 
@@ -84,11 +107,10 @@ bool BikeNode::poll(Packet& out_packet, std::uint32_t now_ms) {
             send_ack(packet.source, packet.sequence, false);
         }
 
-        out_packet = packet;
-        return true;
+        enqueue_rx(packet);
     }
 
-    return false;
+    return dequeue_rx(out_packet);
 }
 
 void BikeNode::service(std::uint32_t now_ms) {
