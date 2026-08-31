@@ -13,6 +13,7 @@ add_library(bike_protocol
     library/src/supervisor.cpp
     library/src/lighting.cpp
     library/src/lighting_server.cpp
+    library/src/lighting_controller.cpp
 )
 
 target_include_directories(bike_protocol PUBLIC
