@@ -15,6 +15,8 @@ struct PendingTx {
     std::uint8_t retries{0};
 };
 
+constexpr std::size_t kNodeRxQueueSize = 8;
+
 class BikeNode {
 public:
     BikeNode(NodeAddress address, Transport& transport);
@@ -32,10 +34,13 @@ public:
     void set_auto_ack(bool enabled) { auto_ack_ = enabled; }
     bool auto_ack() const { return auto_ack_; }
     std::uint32_t tx_failures() const { return tx_failures_; }
+    std::uint32_t rx_drops() const { return rx_drops_; }
 
 private:
     bool write_packet(const Packet& packet);
     void handle_control_packet(const Packet& packet);
+    bool enqueue_rx(const Packet& packet);
+    bool dequeue_rx(Packet& packet);
 
     NodeAddress address_;
     Transport& transport_;
@@ -46,6 +51,12 @@ private:
     std::uint8_t max_retries_{3};
     std::uint32_t tx_failures_{0};
     bool auto_ack_{true};
+
+    std::array<Packet, kNodeRxQueueSize> rx_queue_{};
+    std::size_t rx_head_{0};
+    std::size_t rx_tail_{0};
+    std::size_t rx_count_{0};
+    std::uint32_t rx_drops_{0};
 };
 
 } // namespace bike
