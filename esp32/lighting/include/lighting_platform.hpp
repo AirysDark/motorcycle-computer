@@ -1,6 +1,8 @@
 #pragma once
 
 #include <Arduino.h>
+#include <cstddef>
+#include <cstdint>
 #include "bike/lighting_hardware.hpp"
 #include "bike/transport.hpp"
 
@@ -50,15 +52,17 @@ public:
         configure_output(kHighBeamPin);
     }
 
-    bool write(bike::LightingOutput output, bool enabled) override {
+    bool write_output(bike::LightingOutput output, bool enabled) override {
         const int pin = pin_for(output);
-        if (pin < 0) return false;
+        const auto index = index_for(output);
+        if (pin < 0 || index >= 4) return false;
+
         digitalWrite(pin, enabled ? HIGH : LOW);
-        state_[index_for(output)] = enabled;
+        state_[index] = enabled;
         return true;
     }
 
-    bool read(bike::LightingOutput output) const override {
+    bool read_output(bike::LightingOutput output) const override {
         const auto index = index_for(output);
         return index < 4 ? state_[index] : false;
     }
