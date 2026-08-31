@@ -80,7 +80,7 @@ bool BikeNode::poll(Packet& out_packet, std::uint32_t now_ms) {
             continue;
         }
 
-        if ((packet.flags & FlagAckRequired) != 0) {
+        if (auto_ack_ && (packet.flags & FlagAckRequired) != 0) {
             send_ack(packet.source, packet.sequence, false);
         }
 
