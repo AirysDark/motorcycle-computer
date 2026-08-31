@@ -7,6 +7,9 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 
 add_library(bike_protocol
     protocol/src/codec.cpp
+    library/src/stream_parser.cpp
+    library/src/node.cpp
+    library/src/router.cpp
 )
 
 target_include_directories(bike_protocol PUBLIC
@@ -17,5 +20,13 @@ target_include_directories(bike_protocol PUBLIC
 add_executable(protocol_smoke_test
     tests/protocol_smoke_test.cpp
 )
-
 target_link_libraries(protocol_smoke_test PRIVATE bike_protocol)
+
+add_executable(network_runtime_test
+    tests/network_runtime_test.cpp
+)
+target_link_libraries(network_runtime_test PRIVATE bike_protocol)
+
+enable_testing()
+add_test(NAME protocol_smoke_test COMMAND protocol_smoke_test)
+add_test(NAME network_runtime_test COMMAND network_runtime_test)
