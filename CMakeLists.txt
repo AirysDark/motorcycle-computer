@@ -56,6 +56,11 @@ add_executable(security_server_test
 )
 target_link_libraries(security_server_test PRIVATE bike_protocol)
 
+add_executable(motorcycle_computer_state_test
+    tests/motorcycle_computer_state_test.cpp
+)
+target_link_libraries(motorcycle_computer_state_test PRIVATE bike_protocol)
+
 if(UNIX)
     add_executable(motorcycle_main
         raspberry-pi/main-computer/src/main.cpp
@@ -74,3 +79,4 @@ add_test(NAME supervisor_lighting_test COMMAND supervisor_lighting_test)
 add_test(NAME lighting_server_test COMMAND lighting_server_test)
 add_test(NAME northbridge_runtime_test COMMAND northbridge_runtime_test)
 add_test(NAME security_server_test COMMAND security_server_test)
+add_test(NAME motorcycle_computer_state_test COMMAND motorcycle_computer_state_test)
