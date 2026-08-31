@@ -48,23 +48,32 @@ void LightingLocalControl::service(std::uint32_t now_ms) {
 
     const bool local_left = left_.value();
     const bool local_right = right_.value();
+    const bool indicator_active = local_indicator_active();
 
     if (!initialized_) {
         last_blink_toggle_ms_ = now_ms;
         blink_on_ = true;
+        indicator_active_previous_ = indicator_active;
         initialized_ = true;
     }
 
-    if (local_indicator_active() &&
-        static_cast<std::uint32_t>(now_ms - last_blink_toggle_ms_) >= blink_half_period_ms_) {
+    if (indicator_active && !indicator_active_previous_) {
+        // Start a complete visible ON phase only after the input has passed
+        // debounce. Raw switch-transition time must not shorten the first flash.
+        blink_on_ = true;
+        last_blink_toggle_ms_ = now_ms;
+    } else if (indicator_active &&
+               static_cast<std::uint32_t>(now_ms - last_blink_toggle_ms_) >= blink_half_period_ms_) {
         blink_on_ = !blink_on_;
         last_blink_toggle_ms_ = now_ms;
     }
 
-    if (!local_indicator_active()) {
+    if (!indicator_active) {
         blink_on_ = true;
         last_blink_toggle_ms_ = now_ms;
     }
+
+    indicator_active_previous_ = indicator_active;
 
     const bool effective_left = local_left ? blink_on_ : commanded.left_indicator;
     const bool effective_right = local_right ? blink_on_ : commanded.right_indicator;
