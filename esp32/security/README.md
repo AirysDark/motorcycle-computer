@@ -12,6 +12,8 @@ ESP32-WROOM firmware for the local motorcycle security controller.
 - Bounded alarm / siren output
 - Start-inhibit output
 - Filtered engine-running sense input
+- Persistent armed intent using ESP32 NVS
+- Restart-safe armed-state recovery
 - Security state and event reporting
 - Discovery and heartbeat responses
 - ACK/NACK after application validation
@@ -66,6 +68,15 @@ These are development defaults only and must be checked against the final PCB/ha
 
 Fob authentication is intentionally not implemented yet. Protocol IDs are reserved for `AUTH_REQUEST`, `AUTH_RESULT` and `FOB_PRESENT` so a future fob receiver can feed the same local security state machine without redesigning lock/unlock behavior.
 
-## Reset behavior
+## Reset and persistence behavior
 
-The current development firmware starts with the logical security state unlocked and both outputs inactive. Persistent armed state is a future feature and must only be restored in a way that cannot unexpectedly inhibit a running engine.
+Only the intended armed/disarmed state is persisted. Alarm-output state and start-inhibit-output state are never restored directly from storage.
+
+On every ESP32 boot, the hardware layer first forces both alarm and start-inhibit outputs inactive. The NVS-backed armed flag is then read:
+
+- stored disarmed, missing, or unreadable state -> start `UNLOCKED`, outputs remain OFF;
+- stored armed state -> start `LOCK_PENDING`, outputs remain OFF.
+
+For an armed recovery, the firmware deliberately treats the engine as potentially running until the engine-running input has been observed stopped continuously for the normal 250 ms confirmation period. Only after that confirmation can the state become `LOCKED` and start prevention be asserted.
+
+If the engine-running input is active after reboot, the controller remains `LOCK_PENDING` indefinitely and start prevention remains OFF. This prevents a reset, brownout, corrupt boot sequence, or stale NVS value from becoming a running-engine kill condition.
