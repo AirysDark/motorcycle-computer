@@ -6,11 +6,37 @@
 
 namespace bike {
 
+struct LightingSnapshot {
+    bool valid{false};
+    bool left_indicator{false};
+    bool right_indicator{false};
+    bool brake_bright{false};
+    bool high_beam{false};
+    std::uint32_t updated_at_ms{0};
+};
+
+struct SecuritySnapshot {
+    bool valid{false};
+    SecurityMode mode{SecurityMode::Unlocked};
+    bool start_inhibit{false};
+    bool alarm_active{false};
+    bool shock_warning{false};
+    bool shock_trigger{false};
+    bool engine_running{false};
+    SecurityEventCode last_event{SecurityEventCode::Unlocked};
+    bool has_event{false};
+    std::uint32_t updated_at_ms{0};
+    std::uint32_t last_event_at_ms{0};
+};
+
 struct MotorcycleSnapshot {
-    const NodeStatus* lighting{nullptr};
-    const NodeStatus* security{nullptr};
-    const NodeStatus* northbridge{nullptr};
+    const NodeStatus* lighting_node{nullptr};
+    const NodeStatus* security_node{nullptr};
+    const NodeStatus* northbridge_node{nullptr};
+    LightingSnapshot lighting{};
+    SecuritySnapshot security{};
     std::uint32_t tx_failures{0};
+    std::uint32_t rx_drops{0};
 };
 
 class MotorcycleComputer {
@@ -30,11 +56,16 @@ public:
 
 private:
     void dispatch(const Packet& packet, std::uint32_t now_ms);
+    bool decode_lighting_state(const Packet& packet, std::uint32_t now_ms);
+    bool decode_security_state(const Packet& packet, std::uint32_t now_ms);
+    bool decode_security_event(const Packet& packet, std::uint32_t now_ms);
 
     BikeNode& node_;
     LightingClient lighting_;
     SecurityClient security_;
     NetworkSupervisor supervisor_;
+    LightingSnapshot lighting_state_{};
+    SecuritySnapshot security_state_{};
 };
 
 } // namespace bike
