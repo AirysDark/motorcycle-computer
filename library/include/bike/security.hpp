@@ -12,9 +12,10 @@ enum class SecurityCommand : std::uint8_t {
 };
 
 enum class SecurityMode : std::uint8_t {
-    Unlocked = 0x00,
-    Locked   = 0x01,
-    Alarm    = 0x02
+    Unlocked    = 0x00,
+    Locked      = 0x01,
+    Alarm       = 0x02,
+    LockPending = 0x03
 };
 
 enum class SecurityEventCode : std::uint8_t {
@@ -23,7 +24,8 @@ enum class SecurityEventCode : std::uint8_t {
     AlarmStarted = 0x03,
     AlarmStopped = 0x04,
     Locked       = 0x05,
-    Unlocked     = 0x06
+    Unlocked     = 0x06,
+    LockPending  = 0x07
 };
 
 class SecurityClient {
