@@ -61,6 +61,7 @@ private:
     std::uint32_t dropped_packets_{0};
     std::uint32_t route_movement_events_{0};
     std::uint32_t topology_fault_events_{0};
+    std::uint32_t last_service_ms_{0};
     std::uint16_t local_sequence_{1};
     bool topology_enforced_{false};
 };
