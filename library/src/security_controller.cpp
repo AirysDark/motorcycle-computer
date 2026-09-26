@@ -1,4 +1,5 @@
 #include "bike/security_controller.hpp"
+#include "bike_protocol/device_info.hpp"
 
 namespace bike {
 
@@ -7,10 +8,16 @@ bool SecurityController::send_device_info(NodeAddress destination, std::uint32_t
     packet.destination = destination;
     packet.type = MessageType::DeviceInfo;
     packet.flags = FlagResponse;
-    packet.length = 3;
-    packet.payload[0] = static_cast<std::uint8_t>(NodeAddress::Security);
-    packet.payload[1] = 0x01; // device class: security
-    packet.payload[2] = 0x01; // implementation version
+    DeviceIdentity identity{};
+    identity.device_class = DeviceClass::SecurityController;
+    identity.firmware_major = 0;
+    identity.firmware_minor = 1;
+    identity.firmware_patch = 0;
+    identity.hardware_revision = 1;
+    identity.capabilities = CapabilityDiagnostics | CapabilitySecurity |
+                            CapabilityPersistentState | CapabilityAlarm |
+                            CapabilityStartInhibit;
+    encode_device_info_payload(packet, NodeAddress::Security, identity, now_ms);
     return node_.send(packet, now_ms, false);
 }
 
@@ -24,15 +31,9 @@ bool SecurityController::send_heartbeat(NodeAddress destination, std::uint32_t n
 }
 
 bool SecurityController::handle_system_packet(const Packet& packet, std::uint32_t now_ms) {
-    if (packet.type == MessageType::DeviceDiscovery) {
-        return send_device_info(packet.source, now_ms);
-    }
-    if (packet.type == MessageType::Heartbeat) {
-        return send_heartbeat(packet.source, now_ms);
-    }
-    if (packet.type == MessageType::GetState) {
-        return server_.publish_state(packet.source, now_ms);
-    }
+    if (packet.type == MessageType::DeviceDiscovery) return send_device_info(packet.source, now_ms);
+    if (packet.type == MessageType::Heartbeat) return send_heartbeat(packet.source, now_ms);
+    if (packet.type == MessageType::GetState) return server_.publish_state(packet.source, now_ms);
     return false;
 }
 
@@ -42,7 +43,6 @@ void SecurityController::service(std::uint32_t now_ms) {
         if (handle_system_packet(packet, now_ms)) continue;
         server_.handle_packet(packet, now_ms);
     }
-
     server_.service(now_ms);
     node_.service(now_ms);
 }
