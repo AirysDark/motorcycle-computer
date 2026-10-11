@@ -163,6 +163,7 @@ bool MotorcycleComputer::decode_security_event(const Packet& packet, std::uint32
 
 void MotorcycleComputer::dispatch(const Packet& packet, std::uint32_t now_ms) {
     supervisor_.observe(packet, now_ms);
+    if (packet_observer_) packet_observer_(packet, now_ms);
     if (decode_lighting_state(packet, now_ms)) return;
     if (decode_lighting_diagnostics(packet, now_ms)) return;
     if (decode_lighting_fault(packet, now_ms)) return;
