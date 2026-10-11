@@ -1,6 +1,6 @@
 # Main motorcycle computer (Raspberry Pi 3 or 4)
 
-This is a **software role**, not a Raspberry Pi model designation. Run `motorcycle_main` on either a Raspberry Pi 3 or Raspberry Pi 4 running a supported Linux distribution.
+This is a **software role**, not a Raspberry Pi model designation. Run `motorcycle_main` on either a Raspberry Pi 3 or Raspberry Pi 4 running a supported 32-bit (armhf) or 64-bit (arm64) Linux distribution.
 
 Responsibilities:
 - supervise the ESP32-S3 northbridge and distributed controllers
@@ -34,3 +34,7 @@ The program uses protocol address `MainComputer (0x01)` on both Pi models. Do no
 Pi 3 and Pi 4 are both intended targets. The Pi 4 has more processing headroom for graphical interfaces; the Pi 3 can run the supervisory application. Hardware interfaces, serial port configuration, display support, and actual performance must be verified on each installation.
 
 See [role-independent deployment](../README.md).
+
+## OS architecture
+
+The same source is intended to build for 32-bit ARM Linux and 64-bit ARM Linux. Compile natively on the chosen Pi or cross-compile with the correct target toolchain. The executable is architecture-specific; build and hardware verification for both targets remain outstanding.
