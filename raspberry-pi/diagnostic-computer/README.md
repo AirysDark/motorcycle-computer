@@ -1,6 +1,6 @@
 # Diagnostic computer (Raspberry Pi 3 or 4)
 
-This is a **software role**, not a Raspberry Pi model designation. Run `motorcycle_diag` on either a Raspberry Pi 3 or Raspberry Pi 4.
+This is a **software role**, not a Raspberry Pi model designation. Run `motorcycle_diag` on either a Raspberry Pi 3 or Raspberry Pi 4 with a 32-bit (armhf) or 64-bit (arm64) Linux installation.
 
 Responsibilities:
 - discover network controllers and report health
@@ -26,3 +26,7 @@ The link is 115200 baud, 8-N-1. The device path can be changed for a USB serial 
 The northbridge must actually route diagnostic-node traffic to this Pi. Connecting a second Pi is not automatically supported by a single point-to-point UART. Packet monitoring cannot observe unrelated unmirrored traffic.
 
 See [role-independent deployment](../README.md).
+
+## OS architecture
+
+The same source is intended to build for 32-bit ARM Linux and 64-bit ARM Linux. Compile natively on the chosen Pi or cross-compile with the correct target toolchain. The executable is architecture-specific; build and hardware verification for both targets remain outstanding.
