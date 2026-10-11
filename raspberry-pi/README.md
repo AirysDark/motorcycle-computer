@@ -61,3 +61,9 @@ The codebase uses C++17 and POSIX serial APIs and does not intentionally require
 The normal motorcycle installation uses **one** Raspberry Pi 3 or 4. The `motorcycle_main` application now includes an integrated diagnostic event logger and basic service commands: `diag events`, `diag faults`, `diag clear`, `diag scan`, and `diag refresh`. It observes the existing main-node packet stream, without opening a second serial connection or claiming diagnostic node address 0x02. Diagnostic CSV records are written to `motorcycle-diagnostics.csv` in the process working directory.
 
 The separate `motorcycle_diag` executable remains optional for bench/workshop use; it is not required to operate onboard diagnostics. Advanced self-tests and a graphical service screen are not yet integrated into the main EMU. Safety-critical lighting and security behavior remains local to their ESP32 controllers.
+
+## Integrated EMU self-tests
+
+The main `motorcycle_main` executable also links the shared asynchronous diagnostic self-test runner. Commands: `diag selftest` to query northbridge routing diagnostics, lighting state and security state; `diag report` to view and consume the completed PASS/WARN/FAIL results. These tests reuse the existing main-node connection and supervisor. They do not issue lighting-output or security actuation commands.
+
+**Validation pending:** build/CTest and hardware verification are still required. The current self-test runner accepts matching node/type responses but does not correlate transaction sequence numbers; unsolicited matching packets may be mistaken for responses. Tests are not a replacement for physical inspection or roadworthiness checks.
