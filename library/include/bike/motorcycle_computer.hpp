@@ -1,6 +1,8 @@
 #pragma once
 #include <array>
 #include <cstdint>
+#include <functional>
+#include <utility>
 #include "bike/lighting.hpp"
 #include "bike/lighting_diagnostics.hpp"
 #include "bike/router.hpp"
@@ -57,6 +59,8 @@ public:
     LightingClient& lighting() { return lighting_; }
     SecurityClient& security() { return security_; }
     NetworkSupervisor& supervisor() { return supervisor_; }
+    using PacketObserver = std::function<void(const Packet&, std::uint32_t)>;
+    void set_packet_observer(PacketObserver observer) { packet_observer_ = std::move(observer); }
     void begin(std::uint32_t now_ms);
     void service(std::uint32_t now_ms);
     MotorcycleSnapshot snapshot() const;
@@ -73,6 +77,7 @@ private:
     bool decode_security_event(const Packet& packet, std::uint32_t now_ms);
     static std::size_t lighting_index(LightingOutput output);
 
+    PacketObserver packet_observer_{};
     BikeNode& node_;
     LightingClient lighting_;
     SecurityClient security_;
