@@ -55,3 +55,9 @@ Do not connect two active main-role instances: both would claim address `0x01`. 
 The codebase uses C++17 and POSIX serial APIs and does not intentionally require 64-bit-only Linux interfaces. Supported deployment targets are Raspberry Pi 3 or 4 running either 32-bit or 64-bit Raspberry Pi Linux, provided the compiler, dependencies and serial device are configured for that OS.
 
 **Compatibility target, not a completed test certification:** successful native builds and runtime tests on both armhf and arm64 remain to be verified. Keep distinct builds/packages for each architecture; do not copy an arm64 executable onto a 32-bit installation.
+
+## Single-Pi EMU with integrated diagnostics
+
+The normal motorcycle installation uses **one** Raspberry Pi 3 or 4. The `motorcycle_main` application now includes an integrated diagnostic event logger and basic service commands: `diag events`, `diag faults`, `diag clear`, `diag scan`, and `diag refresh`. It observes the existing main-node packet stream, without opening a second serial connection or claiming diagnostic node address 0x02. Diagnostic CSV records are written to `motorcycle-diagnostics.csv` in the process working directory.
+
+The separate `motorcycle_diag` executable remains optional for bench/workshop use; it is not required to operate onboard diagnostics. Advanced self-tests and a graphical service screen are not yet integrated into the main EMU. Safety-critical lighting and security behavior remains local to their ESP32 controllers.
